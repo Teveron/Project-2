@@ -1,14 +1,26 @@
-vzip: serial.c Logger.c
-	gcc -pthread serial.c Logger.c -lz -o vzip
-
 v2: serial2.c Logger.c
-	gcc -pthread serial2.c Logger.c -lz -o vzip
+	gcc -pthread serial2.c Logger.c -lz -o ../vzip
+
+v1: serial1.c Logger.c
+	gcc -pthread serial1.c Logger.c -lz -o ../vzip
+
+v1a: serial1a.c Logger.c
+	gcc -pthread serial1.c Logger.c -lz -o ../vzip
+
+v0: serial0.c Logger.c
+	gcc -pthread serial0.c Logger.c -lz -o ../vzip
+
+zip:
+	cd .. && \
+	zip -r vzip.zip src
 
 test:
-	rm -f video.vzip
-	./vzip frames
+	cd .. && \
+	rm -f video.vzip && \
+	./vzip frames && \
 	./check.sh
 
 clean:
-	rm -f vzip video.vzip
+	cd .. && \
+	rm -f vzip video.vzip vzip.zip
 
