@@ -207,10 +207,6 @@ void ZipFiles()
 		// Load file
         LogTrace("Loading file \"%s\" ...", fcInfo->FilePath);
 		LoadFile(fcInfo);
-
-		for(int i = 0; i < 10; i++)
-			printf("%d", fcInfo->InputBuffer[i]);
-		printf("\n");
         
         int nbytes = fcInfo->BytesIn;
 
@@ -219,8 +215,8 @@ void ZipFiles()
         LogTrace("Zipping file \"%s\" ...", fcInfo->FilePath);
 		//z_stream strm;
 
-        //pthread_create(&FileCompressionInfos[iFCInfo]->Thread, NULL, ZipFile, FileCompressionInfos[iFCInfo]);
-        ZipFile(FileCompressionInfos[iFCInfo]);
+        pthread_create(&FileCompressionInfos[iFCInfo]->Thread, NULL, ZipFile, FileCompressionInfos[iFCInfo]);
+        //ZipFile(FileCompressionInfos[iFCInfo]);
 
 		//ZipFile(fcInfo);
         //int nbytes_zipped = fcInfo->BytesOut;
@@ -275,8 +271,8 @@ void ZipFiles()
 
     // Wait for threads to complete
     LogDebug("Waiting for threads to complete ...");
-    //for(iFCInfo = 0; iFCInfo < InputFileCount; iFCInfo++)
-    //    pthread_join(FileCompressionInfos[iFCInfo]->Thread, NULL);
+    for(iFCInfo = 0; iFCInfo < InputFileCount; iFCInfo++)
+        pthread_join(FileCompressionInfos[iFCInfo]->Thread, NULL);
 }
 
 
@@ -290,7 +286,7 @@ int main(int argc, char **argv) {
 
 
     // Setup
-    Logger_Initialize(Trace);
+    Logger_Initialize(None);
    	assert(argc == 2);
     int iFCInfo;  // Reused iterator
 
@@ -319,8 +315,8 @@ int main(int argc, char **argv) {
 	//return 0;
 
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
-	printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
+	//clock_gettime(CLOCK_MONOTONIC, &end);
+	//printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
 
     
     /*
@@ -339,8 +335,8 @@ int main(int argc, char **argv) {
 
     
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
-	printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
+	//clock_gettime(CLOCK_MONOTONIC, &end);
+	//printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
 
 
 	// Dump zipped files
@@ -369,8 +365,9 @@ int main(int argc, char **argv) {
 	fclose(f_out);
 
 
-	//printf("Compression rate: %.2lf%%\n", 100.0 * (total_in - total_out) / total_in);
-
+    // Don't modify this line!  It's needed for Gradescope! ---------------------------------------
+	printf("Compression rate: %.2lf%%\n", 100.0 * (totalBytesIn - totalBytesOut) / totalBytesIn);
+    // --------------------------------------------------------------------------------------------
 
 	// do not modify the main function after this point!
 
