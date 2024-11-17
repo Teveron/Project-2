@@ -10,7 +10,7 @@
 
 
 #define BUFFER_SIZE 1048576 // 1MB
-#define MAX_PROCESS_COUNT 19
+#define MAX_PROCESS_COUNT 1
 
 
 int cmp(const void *a, const void *b)
@@ -72,6 +72,7 @@ void ReadFileNames(char* directoryPath)
 
         // Get next file entry
         dir = readdir(d);
+        break;
 	}
 
     // Close directory
@@ -88,6 +89,7 @@ void SortFiles()
 void CreateFileCompressionInfos(char* directoryPath)
 {
     LogDebug("Creating FileCompressionInfos ...");
+    FileCompressionInfos = malloc(MAX_PROCESS_COUNT * sizeof(struct FileCompressionInfo*));
     int filesPerProcess = InputFileCount / MAX_PROCESS_COUNT;
 
 	int iFCInfo;
@@ -99,14 +101,17 @@ void CreateFileCompressionInfos(char* directoryPath)
         if(iFCInfo == MAX_PROCESS_COUNT - 1)
             fileCount += InputFileCount - filesPerProcess * MAX_PROCESS_COUNT;  // Add extra files to the last FileCompressionInfo
         
+        LogTrace("File count = %d", fileCount);
         char** fileNames = malloc(fileCount * sizeof(char*));
 	    int iFile;
         for(iFile = 0; iFile < fileCount; iFile++)
         {
             int iFile2 = iFCInfo * filesPerProcess + iFile;
             fileNames[iFile] = InputFiles[iFile2];
+            LogTrace("Input file name = %s, file name = %s", InputFiles[iFile2], fileNames[iFile]);
         }
 
+        FileCompressionInfos[iFCInfo] = malloc(sizeof(struct FileCompressionInfo));
         FileCompressionInfos[iFCInfo]->FileNames = fileNames;
         FileCompressionInfos[iFCInfo]->FileCount = fileCount;
         FileCompressionInfos[iFCInfo]->OutputBuffer = NULL;
@@ -121,13 +126,15 @@ void CreateFileCompressionInfos(char* directoryPath)
 // Creates the full file path for the file to be imported
 char* CreateFilePath(char* fileName)
 {
+    LogTrace("Creating file path for \"%s\" ...", fileName);
     int filePathLength = strlen(DirectoryPath) + strlen(fileName) + 2;
     char *filePath = malloc(filePathLength * sizeof(char));
     assert(filePath != NULL);
+
     strcpy(filePath, DirectoryPath);
     strcat(filePath, "/");
     strcat(filePath, fileName);
-    return fileName;
+    return filePath;
 }
 
 // Loads file into a buffer
@@ -144,14 +151,19 @@ int LoadFile(char* filePath, unsigned char** buffer)
 // Zips the contents in the input buffer to the output buffer
 int ZipFile(unsigned char** inputBuffer, unsigned char** outputBuffer, int bytesAvailable)
 {
+    LogDebug("Zipping file ...");
     z_stream strm;
-    int ret = deflateInit(&strm, 9);
-    assert(ret == Z_OK);
     strm.avail_in = bytesAvailable;
     strm.next_in = *inputBuffer;
     strm.avail_out = BUFFER_SIZE;
     strm.next_out = *outputBuffer;
+    strm.zalloc = Z_NULL;
 
+    LogTrace("DeflateInit");
+    int ret = deflateInit(&strm, 9);
+    assert(ret == Z_OK);
+
+    LogTrace("Deflating ...");
     ret = deflate(&strm, Z_FINISH);
     assert(ret == Z_STREAM_END);
 
@@ -160,31 +172,34 @@ int ZipFile(unsigned char** inputBuffer, unsigned char** outputBuffer, int bytes
     return byteCountZipped;
 }
 
-void DumpFileToBuffer(struct FileCompressionInfo* fcInfo, unsigned char** fileOutputBuffer, int byteCountZipped)
+void DumpFileToBuffer(int iFCInfo, unsigned char** fileOutputBuffer, int byteCountZipped)
 {
+    LogTrace("iFCInfo = %d", iFCInfo);
+    struct FileCompressionInfo* fcInfo = FileCompressionInfos[iFCInfo];
     fcInfo->TotalBytesOut += byteCountZipped;
     fcInfo->OutputBufferLength += byteCountZipped + sizeof(int);
 
-    LogTrace("Reallocatng CompressionInfo.OutputBuffer.  New size = %d", fcInfo->OutputBufferLength);
+    LogTrace("Reallocatng FileCompressionInfo.OutputBuffer.  New size = %d", fcInfo->OutputBufferLength);
     fcInfo->OutputBuffer = realloc(fcInfo->OutputBuffer, fcInfo->OutputBufferLength * sizeof(unsigned char));
     
     // Convert nbytes_zipped to char[]
-    LogTrace("Writing compressed output length to buffer ...");
-    fcInfo->OutputBuffer[fcInfo->OutputBufferLength - byteCountZipped - 4] = (unsigned char)(byteCountZipped  & 0xFF);
-    fcInfo->OutputBuffer[fcInfo->OutputBufferLength - byteCountZipped - 3] = (unsigned char)(byteCountZipped >> 8 & 0xFF);
-    fcInfo->OutputBuffer[fcInfo->OutputBufferLength - byteCountZipped - 2] = (unsigned char)(byteCountZipped >> 16 & 0xFF);
-    fcInfo->OutputBuffer[fcInfo->OutputBufferLength - byteCountZipped - 1] = (unsigned char)(byteCountZipped >> 24 & 0xFF);
+    fcInfo->OutputBuffer[0] = (unsigned char)(byteCountZipped & 0xFF);
+    fcInfo->OutputBuffer[1] = (unsigned char)(byteCountZipped >> 8 & 0xFF);
+    fcInfo->OutputBuffer[2] = (unsigned char)(byteCountZipped >> 16 & 0xFF);
+    fcInfo->OutputBuffer[3] = (unsigned char)(byteCountZipped >> 24 & 0xFF);
 
     // Copy output file buffer to output buffer
     LogTrace("Writing compressed output data to buffer ...");
     int iChar;	
     for(iChar = 0; iChar < byteCountZipped; iChar++)
-        fcInfo->OutputBuffer[fcInfo->OutputBufferLength - byteCountZipped + iChar] = *fileOutputBuffer[iChar];
+        fcInfo->OutputBuffer[iChar + 4] = (*fileOutputBuffer)[iChar];
+    LogTrace("%d", fcInfo->OutputBuffer[0]);
 }
 
 void* ZipFiles(void* input)
 {
-    struct FileCompressionInfo* fcInfo = (struct FileCompressionInfo*)input;
+    int iFCInfo = *(int*)input;
+    struct FileCompressionInfo* fcInfo = FileCompressionInfos[iFCInfo];
 	
     int iFile;
 	for(iFile = 0; iFile < fcInfo->FileCount; iFile++)
@@ -194,7 +209,7 @@ void* ZipFiles(void* input)
 		unsigned char* fileOutputBuffer = malloc(BUFFER_SIZE * sizeof(unsigned char));
 
 		// Get file path
-        LogTrace("Creating file path ...");
+        LogTrace("Creating file path for \"%s\" ...", fcInfo->FileNames[iFile]);
         char* filePath = CreateFilePath(fcInfo->FileNames[iFile]);
 
 		// Load file
@@ -207,7 +222,7 @@ void* ZipFiles(void* input)
 
 		// Dump zipped file
         LogTrace("Writing compressed output to buffer ...");
-        DumpFileToBuffer(fcInfo, &fileOutputBuffer, byteCountZipped);
+        DumpFileToBuffer(iFCInfo, &fileOutputBuffer, byteCountZipped);
 
         // Cleanup
         free(filePath);
@@ -227,7 +242,9 @@ void ParrelelZipFiles()
     {
 		struct FileCompressionInfo* fcInfo = FileCompressionInfos[iFCInfo];
         //pthread_create(&FileCompressionInfos[iFCInfo]->Thread, NULL, ZipFiles, FileCompressionInfos[iFCInfo]);
-        pthread_create(&fcInfo->Thread, NULL, ZipFiles, fcInfo);
+        int* i = malloc(sizeof(int*));
+        *i = iFCInfo;
+        pthread_create(&fcInfo->Thread, NULL, ZipFiles, i);
         //ZipFile(FileCompressionInfos[iFCInfo]);
 	}
 
@@ -238,18 +255,23 @@ void ParrelelZipFiles()
 }
 
 
-void ExportZippedFiles(FILE* outputFile, int* totalBytesIn, int* totalBytesOut)
+void ExportZippedFiles(FILE** outputFile, int* totalBytesIn, int* totalBytesOut)
 {
     *totalBytesIn = 0;
     *totalBytesOut = 0;
     int iFCInfo;
     for(iFCInfo = 0; iFCInfo < MAX_PROCESS_COUNT; iFCInfo++)
     {
-        LogTrace("Writing output to file.  OutputBufferLength = %d", FileCompressionInfos[iFCInfo]->OutputBufferLength);
-        fwrite(FileCompressionInfos[iFCInfo]->OutputBuffer, sizeof(unsigned char), FileCompressionInfos[iFCInfo]->OutputBufferLength, outputFile);
-        *totalBytesIn += FileCompressionInfos[iFCInfo]->TotalBytesIn;
-        *totalBytesOut += FileCompressionInfos[iFCInfo]->TotalBytesOut;
+        struct FileCompressionInfo* fcInfo = FileCompressionInfos[iFCInfo];
+        LogTrace("Writing output to file.  OutputBufferLength = %d", fcInfo->OutputBufferLength);
+        fwrite(fcInfo->OutputBuffer, sizeof(unsigned char), fcInfo->OutputBufferLength, *outputFile);
+        *totalBytesIn = fcInfo->TotalBytesIn + *totalBytesIn;
+        *totalBytesOut = fcInfo->TotalBytesOut + *totalBytesOut;
+
+        LogTrace("%d, %d, %d", fcInfo->TotalBytesOut, *totalBytesOut, fcInfo->OutputBuffer[0]);
     }
+
+    LogTrace("%d", *totalBytesIn);
 }
 
 void Cleanup()
@@ -278,6 +300,7 @@ int main(int argc, char **argv) {
     // Initialize
    	assert(argc == 2);
     Logger_Initialize(Trace);
+    DirectoryPath = strdup(argv[1]);
 
     // Open output file
     LogTrace("Opening output file ...");
@@ -309,7 +332,7 @@ int main(int argc, char **argv) {
     LogTrace("Exporting compressed file ...")
     int totalBytesIn;
     int totalBytesOut;
-    ExportZippedFiles(outputFile, &totalBytesIn, &totalBytesOut);
+    ExportZippedFiles(&outputFile, &totalBytesIn, &totalBytesOut);
 
 
     // Cleanup

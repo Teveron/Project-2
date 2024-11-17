@@ -153,20 +153,22 @@ int main(int argc, char **argv) {
     LogTrace("Creating CompressionInfos ...");
 	struct CompressionInfo compressionInfos[MAX_PROCESS_COUNT];
     int filesPerProcess = nfiles / MAX_PROCESS_COUNT;
+    int remainingFiles = nfiles - filesPerProcess * MAX_PROCESS_COUNT;
 	int iCompressionInfo;
+    int iFile = 0;
     for(iCompressionInfo = 0; iCompressionInfo < MAX_PROCESS_COUNT; iCompressionInfo++)
     {
         // Create file list
         LogTrace("Creating file list ...");
-        int fileCount = filesPerProcess;
-        if(iCompressionInfo == MAX_PROCESS_COUNT - 1)
-            fileCount += nfiles - filesPerProcess * MAX_PROCESS_COUNT;
+        int fileCount = iCompressionInfo < remainingFiles ? filesPerProcess + 1 : filesPerProcess;
+        LogTrace("File count = %d", fileCount);
+
         char** fileNames = malloc(fileCount * sizeof(char*));
-	    int iFile;
-        for(iFile = 0; iFile < fileCount; iFile++)
+        int iFileCount;
+        for(iFileCount = 0; iFileCount < fileCount; iFileCount++)
         {
-            int iFile2 = iCompressionInfo * filesPerProcess + iFile;
-            fileNames[iFile] = files[iFile2];
+            fileNames[iFileCount] = files[iFile];
+            iFile++;
         }
 
         compressionInfos[iCompressionInfo].DirectoryPath = argv[1];
@@ -222,7 +224,6 @@ int main(int argc, char **argv) {
 
 
 	// Release list of files
-	int iFile;
 	for(iFile = 0; iFile < nfiles; iFile++)
 		free(files[iFile]);
 	free(files);
