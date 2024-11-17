@@ -150,8 +150,6 @@ void* ZipFile(void* input)
 	strm.avail_out = BUFFER_SIZE;
 	strm.next_out = fcInfo->OutputBuffer;
     strm.zalloc = Z_NULL;
-    //strm.zfree = Z_NULL;
-    //strm.opaque = Z_NULL;
 
     LogTrace("Calling deflateInit() ...");
 	int ret = deflateInit(&strm, 9);
@@ -164,32 +162,6 @@ void* ZipFile(void* input)
 	ret = deflate(&strm, Z_FINISH);
 	assert(ret == Z_STREAM_END);
     
-
-    /*
-	LogTrace("Zipping file ...");
-	z_stream zStream; // = fcInfo->ZStream;
-	LogTrace("Stream created");
-
-	int ret = deflateInit(&zStream, 9);
-	assert(ret == Z_OK);
-	LogTrace("Stream init");
-	
-	zStream.avail_in = fcInfo->BytesIn;
-	LogTrace("Stream created");
-	
-	zStream.next_in = fcInfo->InputBuffer;
-	LogTrace("Stream created");
-	zStream.avail_out = BUFFER_SIZE;
-	zStream.next_out = fcInfo->OutputBuffer;
-	LogTrace("Stream created");
-
-	ret = deflate(&zStream, Z_FINISH);
-	LogTrace("Stream deflated");
-	assert(ret == Z_STREAM_END);
-
-    fcInfo->BytesOut = BUFFER_SIZE - zStream.avail_out;
-    */
-    
 	fcInfo->BytesOut = BUFFER_SIZE - strm.avail_out;
     LogTrace("Bytes out = %d", fcInfo->BytesOut);
 }
@@ -197,6 +169,7 @@ void* ZipFile(void* input)
 void ZipFiles()
 {
     int iFCInfo;
+
     /*
 	for(iFCInfo = 0; iFCInfo < InputFileCount; iFCInfo++)
     {
@@ -213,77 +186,22 @@ void ZipFiles()
     for(iFCInfo = 0; iFCInfo < InputFileCount; iFCInfo++)
         pthread_join(FileCompressionInfos[iFCInfo]->Thread, NULL);
     */
-
+    
+    
+    // Zip files
 	LogTrace("Zipping files.  File count = %d", InputFileCount);
-	//int iFCInfo;
-	for(iFCInfo = 0; iFCInfo < InputFileCount; iFCInfo++)
+	for(iFCInfo = 0; iFCInfo < MAX_PROCESS_COUNT; iFCInfo++)
     {
 		struct FileCompressionInfo* fcInfo = FileCompressionInfos[iFCInfo];
-        //FileCompressionInfos[iFCInfo]->InputBuffer = malloc(BUFFER_SIZE * sizeof(unsigned char));
-		//FileCompressionInfos[iFCInfo]->OutputBuffer = malloc(BUFFER_SIZE * sizeof(unsigned char));
-
 
 		// Load file
         LogTrace("Loading file \"%s\" ...", fcInfo->FilePath);
 		LoadFile(fcInfo);
-        
         int nbytes = fcInfo->BytesIn;
 
 		// Zip file
         LogTrace("Zipping file \"%s\" ...", fcInfo->FilePath);
-		//z_stream strm;
-
         pthread_create(&FileCompressionInfos[iFCInfo]->Thread, NULL, ZipFile, FileCompressionInfos[iFCInfo]);
-        //ZipFile(FileCompressionInfos[iFCInfo]);
-
-		//ZipFile(fcInfo);
-        //int nbytes_zipped = fcInfo->BytesOut;
-
-		/*
-		z_stream strm;
-		int ret = deflateInit(&strm, 9);
-		assert(ret == Z_OK);
-		strm.avail_in = nbytes;
-		strm.next_in = fileInputBuffer;
-		strm.avail_out = BUFFER_SIZE;
-		strm.next_out = fileOutputBuffer;
-
-		ret = deflate(&strm, Z_FINISH);
-		assert(ret == Z_STREAM_END);
-
-		int nbytes_zipped = BUFFER_SIZE - strm.avail_out;
-		*/
-		//LogTrace("Bytes zipped = %d", nbytes_zipped);
-
-
-		// Dump zipped file
-        /*
-        LogTrace("Writing compressed output to buffer ...");
-        //compressionInfo->BytesOut += nbytes_zipped;
-		//compressionInfo->OutputBufferLength += nbytes_zipped + sizeof(int);
-
-        //LogTrace("Reallocatng CompressionInfo->OutputBuffer.  New size = %d", compressionInfo->OutputBufferLength);
-		//compressionInfo->OutputBuffer = realloc(compressionInfo->OutputBuffer, compressionInfo->OutputBufferLength * sizeof(char));
-
-
-		// Convert nbytes_zipped to char[]
-        LogTrace("Writing compressed output length to buffer ...");
-		compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped - 4] = (unsigned char)(nbytes_zipped  & 0xFF);
-		compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped - 3] = (unsigned char)(nbytes_zipped >> 8 & 0xFF);
-		compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped - 2] = (unsigned char)(nbytes_zipped >> 16 & 0xFF);
-		compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped - 1] = (unsigned char)(nbytes_zipped >> 24 & 0xFF);
-        
-
-		// Copy output file buffer to output buffer
-        LogTrace("Writing compressed output data to buffer ...");
-		int iChar;	
-		for(iChar = 0; iChar < nbytes_zipped; iChar++)
-			compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped + iChar] = fileOutputBuffer[iChar];
-        */
-        
-
-		//free(fcInfo->FilePath);
-		//free(fcInfo->InputBuffer);
 	}
 
 
@@ -329,32 +247,10 @@ int main(int argc, char **argv) {
     CreateCompressionInfos(argv[1]);
 	LogTrace("First file name = %s", FileCompressionInfos[0]->FilePath);
 
-
-	//return 0;
-
-
-	//clock_gettime(CLOCK_MONOTONIC, &end);
-	//printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
-
-    
-    /*
-	// Create a single zipped package with all PPM files in lexicographical order
-	LogTrace("Zipping files ...");
-    for(int iCompressionInfo = 0; iCompressionInfo < MAX_PROCESS_COUNT; iCompressionInfo++)
-        ZipFiles(&compressionInfos[iCompressionInfo]);
-    */
-
     
 	// Create a single zipped package with all PPM files in lexicographical order
 	LogDebug("Zipping files ...");
     ZipFiles();
-
-
-
-    
-
-	//clock_gettime(CLOCK_MONOTONIC, &end);
-	//printf("Time: %.2f seconds\n", ((double)end.tv_sec+1.0e-9*end.tv_nsec)-((double)start.tv_sec+1.0e-9*start.tv_nsec));
 
 
 	// Dump zipped files

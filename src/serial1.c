@@ -10,7 +10,7 @@
 
 
 #define BUFFER_SIZE 1048576 // 1MB
-#define MAX_PROCESS_COUNT 18
+#define MAX_PROCESS_COUNT 19
 
 
 int cmp(const void *a, const void *b) {
@@ -36,7 +36,8 @@ void* ZipFiles(void* input)
     struct CompressionInfo* compressionInfo = (struct CompressionInfo*)input;
 
 	int iFile;
-	for(iFile = 0; iFile < compressionInfo->FileCount; iFile++) {
+	for(iFile = 0; iFile < compressionInfo->FileCount; iFile++)
+    {
 		// Get file path
         LogTrace("Creating file path ...");
 		int filePathLength = strlen(compressionInfo->DirectoryPath) + strlen(compressionInfo->FileNames[iFile]) + 2;
@@ -92,8 +93,8 @@ void* ZipFiles(void* input)
 
 		// Copy output file buffer to output buffer
         LogTrace("Writing compressed output data to buffer ...");
-	int iChar;	
-	for(iChar = 0; iChar < nbytes_zipped; iChar++)
+	    int iChar;	
+	    for(iChar = 0; iChar < nbytes_zipped; iChar++)
 			compressionInfo->OutputBuffer[compressionInfo->OutputBufferLength - nbytes_zipped + iChar] = fileOutputBuffer[iChar];
 	}
 }
@@ -161,16 +162,11 @@ int main(int argc, char **argv) {
         if(iCompressionInfo == MAX_PROCESS_COUNT - 1)
             fileCount += nfiles - filesPerProcess * MAX_PROCESS_COUNT;
         char** fileNames = malloc(fileCount * sizeof(char*));
-	int iFile;
+	    int iFile;
         for(iFile = 0; iFile < fileCount; iFile++)
         {
             int iFile2 = iCompressionInfo * filesPerProcess + iFile;
             fileNames[iFile] = files[iFile2];
-            /*
-            int fileNameLength = strlen(files[iFile2] + 1);
-            fileNames[iFile] = malloc(fileNameLength * sizeof(char));
-            strcpy(fileNames[iFile], files[iFile2]);
-            */
         }
 
         compressionInfos[iCompressionInfo].DirectoryPath = argv[1];
