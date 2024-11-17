@@ -1,8 +1,8 @@
-default: serial1.c Logger.c
-	gcc -pthread serial1.c Logger.c -lz -o vzip
+default: parallel.c Logger.c
+	gcc -pthread parallel.c Logger.c -lz -o vzip
 
-v3: serial3.c Logger.c
-	gcc -pthread serial3.c Logger.c -lz -o ../vzip
+v3: parallel.c Logger.c
+	gcc -pthread parallel.c Logger.c -lz -o ../vzip
 
 v2: serial2.c Logger.c
 	gcc -pthread serial2.c Logger.c -lz -o ../vzip

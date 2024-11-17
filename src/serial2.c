@@ -81,7 +81,7 @@ void SortFiles()
 	qsort(InputFiles, InputFileCount, sizeof(char*), cmp);
 }
 
-void CreateCompressionInfos(char* directoryPath)
+void CreateFileCompressionInfos(char* directoryPath)
 {
    	FileCompressionInfos = malloc(InputFileCount * sizeof(struct FileCompressionInfo*));
 
@@ -326,7 +326,7 @@ int main(int argc, char **argv) {
 
     // Create FileCompressionInfos
     LogDebug("Creating FileCompressionInfos ...");
-    CreateCompressionInfos(argv[1]);
+    CreateFileCompressionInfos(argv[1]);
 	LogTrace("First file name = %s", FileCompressionInfos[0]->FilePath);
 
 
